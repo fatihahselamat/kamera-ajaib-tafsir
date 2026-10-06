@@ -1,0 +1,4161 @@
+<!DOCTYPE html>
+<html lang="ms">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<meta name="theme-color" content="#032a4c">
+
+<title>Kamera Ajaib Tafsir — Head Tracking AR</title>
+
+<script src="https://cdn.tailwindcss.com"></script>
+
+<link rel="stylesheet"
+href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+
+<link href="https://fonts.googleapis.com/css2?family=Amiri:wght@400;700&family=Bangers&family=Noto+Sans+Arabic:wght@400;600;700;800&family=Outfit:wght@400;600;700;800;900&display=swap"
+rel="stylesheet">
+
+<script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.2/dist/confetti.browser.min.js"></script>
+
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_detection/face_detection.js"></script>
+
+<style>
+:root{
+ --cyan:#59f7ff;
+ --green:#61ff9c;
+ --red:#ff6577;
+ --gold:#ffe66d;
+ --dark:#021a38;
+}
+
+*{
+ box-sizing:border-box;
+ -webkit-tap-highlight-color:transparent;
+}
+
+html,body{
+ width:100%;
+ height:100%;
+ margin:0;
+ overflow:hidden;
+ background:#02152d;
+ font-family:"Outfit",sans-serif;
+}
+
+button{
+ font-family:"Outfit",sans-serif;
+}
+
+.arabic{
+ font-family:"Noto Sans Arabic","Amiri",serif;
+ direction:rtl;
+ unicode-bidi:isolate;
+ line-height:1.7;
+}
+
+/* =====================================================
+   GAME
+===================================================== */
+
+#game{
+ position:relative;
+ width:100vw;
+ height:100dvh;
+ overflow:hidden;
+ background:#04385c;
+}
+
+/* =====================================================
+   OCEAN
+===================================================== */
+
+#ocean{
+ position:absolute;
+ inset:0;
+ z-index:0;
+ overflow:hidden;
+
+ background:
+ radial-gradient(circle at 50% -5%,
+ rgba(176,248,255,.9),
+ transparent 30%),
+
+ linear-gradient(
+ #1695c8 0%,
+ #08729e 35%,
+ #03466f 67%,
+ #021a38 100%
+ );
+}
+
+.ray{
+ position:absolute;
+ top:-20%;
+ width:15%;
+ height:95%;
+ background:linear-gradient(
+ rgba(255,255,255,.25),
+ transparent
+ );
+ filter:blur(10px);
+ opacity:.5;
+}
+
+.r1{left:10%;transform:rotate(12deg)}
+.r2{left:45%;transform:rotate(-8deg)}
+.r3{right:10%;transform:rotate(10deg)}
+
+.seabed{
+ position:absolute;
+ bottom:0;
+ left:0;
+ right:0;
+ height:13%;
+ background:linear-gradient(#d0a35f,#8e5a31);
+}
+
+.coral{
+ position:absolute;
+ bottom:6%;
+ font-size:60px;
+}
+
+.c1{left:3%}
+.c2{right:4%}
+.c3{left:18%;font-size:42px}
+
+.fish{
+ position:absolute;
+ left:-120px;
+ z-index:2;
+ animation:swim linear infinite;
+ filter:drop-shadow(0 5px 5px rgba(0,0,0,.25));
+}
+
+.f1{
+ top:31%;
+ font-size:45px;
+ animation-duration:15s;
+}
+
+.f2{
+ top:51%;
+ font-size:35px;
+ animation-duration:20s;
+ animation-delay:-8s;
+}
+
+.f3{
+ top:62%;
+ font-size:48px;
+ animation-duration:24s;
+ animation-delay:-13s;
+}
+
+@keyframes swim{
+ from{transform:translateX(-150px)}
+ to{transform:translateX(calc(100vw + 250px))}
+}
+
+.bubble{
+ position:absolute;
+ bottom:-50px;
+ border-radius:50%;
+ border:2px solid rgba(190,250,255,.5);
+ background:rgba(200,250,255,.08);
+ animation:bubbleUp linear infinite;
+}
+
+@keyframes bubbleUp{
+ 0%{
+  opacity:0;
+  transform:translateY(0) scale(.7);
+ }
+ 15%{opacity:.8}
+ 100%{
+  opacity:0;
+  transform:translateY(-115vh) scale(1.3);
+ }
+}
+
+/* =====================================================
+   CAMERA
+===================================================== */
+
+#cameraVideo{
+ position:absolute;
+ inset:0;
+ width:100%;
+ height:100%;
+ object-fit:cover;
+
+ /* Camera sahaja mirror */
+ transform:scaleX(-1);
+
+ z-index:1;
+
+ display:none;
+}
+
+#cameraTint{
+ position:absolute;
+ inset:0;
+ z-index:2;
+ pointer-events:none;
+
+ background:
+ linear-gradient(
+ rgba(0,104,145,.09),
+ rgba(0,26,68,.18)
+ );
+}
+
+/* =====================================================
+   FX
+===================================================== */
+
+#fxCanvas{
+ position:absolute;
+ inset:0;
+ width:100%;
+ height:100%;
+ z-index:70;
+ pointer-events:none;
+}
+
+/* =====================================================
+   HUD
+===================================================== */
+
+#hud{
+ position:absolute;
+ z-index:20;
+ top:0;
+ left:0;
+ right:0;
+ padding:6px;
+ pointer-events:none;
+}
+
+.glass{
+ background:linear-gradient(
+ 135deg,
+ rgba(2,53,91,.94),
+ rgba(1,19,48,.94)
+ );
+
+ border:2px solid rgba(91,235,255,.6);
+
+ box-shadow:
+ inset 0 0 20px rgba(79,234,255,.08),
+ 0 7px 22px rgba(0,0,0,.3);
+
+ backdrop-filter:blur(8px);
+}
+
+.topbar{
+ max-width:1150px;
+ margin:auto;
+
+ border-radius:17px;
+ padding:5px 8px;
+
+ display:grid;
+ grid-template-columns:1.5fr repeat(4,auto);
+ gap:5px;
+ align-items:center;
+
+ color:white;
+}
+
+.logoTitle{
+ font-family:"Bangers",sans-serif;
+ letter-spacing:2px;
+ font-size:clamp(17px,2.5vw,29px);
+ color:#69f8ff;
+ text-shadow:2px 2px #002e57;
+ white-space:nowrap;
+}
+
+.logoSub{
+ font-size:9px;
+ color:#c4f9ff;
+}
+
+.stat{
+ text-align:center;
+ background:rgba(0,5,25,.32);
+ border:1px solid rgba(104,236,255,.25);
+ border-radius:9px;
+ padding:3px 7px;
+ font-size:8px;
+ white-space:nowrap;
+}
+
+.stat strong{
+ display:block;
+ color:#ffe765;
+ font-size:14px;
+}
+
+#comboText{
+ color:#65fff0;
+}
+
+.progressBox{
+ max-width:1150px;
+ height:7px;
+ margin:4px auto 0;
+ background:#00142b;
+ border:1px solid #158caf;
+ border-radius:999px;
+ overflow:hidden;
+}
+
+#progress{
+ height:100%;
+ width:0;
+ background:linear-gradient(
+ 90deg,#55f7ff,#61ffad,#ffe462
+ );
+ transition:.35s;
+}
+
+/* =====================================================
+   QUESTION
+===================================================== */
+
+#questionPanel{
+ position:absolute;
+ z-index:22;
+ top:73px;
+ left:50%;
+ transform:translateX(-50%);
+ width:min(94vw,880px);
+}
+
+.questionCard{
+ text-align:center;
+ padding:5px 15px 8px;
+ border-radius:16px;
+ color:white;
+
+ background:linear-gradient(
+ 135deg,
+ rgba(0,73,111,.94),
+ rgba(1,27,67,.94)
+ );
+
+ border:2px solid #5aeeff;
+
+ box-shadow:0 7px 20px rgba(0,0,0,.3);
+}
+
+.questionLabel{
+ font-size:9px;
+ color:#8ef7ff;
+ font-weight:900;
+ letter-spacing:1px;
+}
+
+#surahName{
+ display:inline-block;
+ margin-top:2px;
+ padding:2px 9px;
+ border-radius:999px;
+ background:#ffe36a;
+ color:#15374a;
+ font-size:9px;
+ font-weight:900;
+}
+
+#verse{
+ font-size:clamp(15px,2.4vw,26px);
+ font-weight:800;
+ margin-top:2px;
+ line-height:1.55;
+}
+
+/* =====================================================
+   STATEMENT
+===================================================== */
+
+#statementBox{
+ position:absolute;
+ z-index:23;
+ top:155px;
+ left:50%;
+ transform:translateX(-50%);
+
+ width:min(88vw,780px);
+
+ padding:6px 14px;
+
+ text-align:center;
+ color:white;
+
+ background:rgba(1,20,50,.76);
+
+ border:1px solid rgba(107,241,255,.6);
+
+ border-radius:13px;
+
+ backdrop-filter:blur(6px);
+
+ box-shadow:0 5px 15px rgba(0,0,0,.2);
+}
+
+.statementTitle{
+ color:#ffe46b;
+ font-size:8px;
+ font-weight:900;
+ letter-spacing:1px;
+}
+
+#statement{
+ font-size:clamp(11px,1.5vw,17px);
+ font-weight:700;
+ line-height:1.55;
+}
+
+/* =====================================================
+   CHOICE
+===================================================== */
+
+.choiceZone{
+ position:absolute;
+ z-index:18;
+
+ top:235px;
+ bottom:65px;
+
+ width:29%;
+
+ display:flex;
+ align-items:center;
+ justify-content:center;
+
+ pointer-events:none;
+}
+
+#falseZone{left:1.5%}
+#trueZone{right:1.5%}
+
+.zoneCard{
+ width:100%;
+ max-width:270px;
+ min-height:155px;
+
+ border-radius:25px;
+
+ display:flex;
+ flex-direction:column;
+ align-items:center;
+ justify-content:center;
+
+ backdrop-filter:blur(5px);
+
+ transition:.2s;
+}
+
+.falseCard{
+ background:rgba(128,20,42,.27);
+ border:3px solid rgba(255,101,116,.72);
+}
+
+.trueCard{
+ background:rgba(13,122,83,.27);
+ border:3px solid rgba(88,255,149,.72);
+}
+
+.zoneIcon{
+ font-size:clamp(45px,7vw,85px);
+ line-height:1;
+}
+
+.zoneTitle{
+ margin-top:6px;
+ font-family:"Bangers",sans-serif;
+ letter-spacing:2px;
+ font-size:clamp(25px,4vw,48px);
+}
+
+.falseCard .zoneTitle{color:#ff8590}
+.trueCard .zoneTitle{color:#75ffa7}
+
+.zoneHint{
+ margin-top:3px;
+ font-size:clamp(8px,1vw,11px);
+ color:white;
+ opacity:.85;
+}
+
+.choiceZone.active .zoneCard{
+ transform:scale(1.08);
+}
+
+#falseZone.active .zoneCard{
+ background:rgba(194,25,52,.6);
+ border-color:#ff5368;
+ box-shadow:0 0 35px rgba(255,76,98,.8);
+}
+
+#trueZone.active .zoneCard{
+ background:rgba(14,161,98,.6);
+ border-color:#54ff9a;
+ box-shadow:0 0 35px rgba(75,255,145,.8);
+}
+
+/* =====================================================
+   CENTER FACE GUIDE
+===================================================== */
+
+#centerGuide{
+ position:absolute;
+ z-index:17;
+
+ top:50%;
+ left:50%;
+
+ transform:translate(-50%,-50%);
+
+ width:31%;
+ min-width:180px;
+ max-width:360px;
+
+ text-align:center;
+
+ pointer-events:none;
+}
+
+.faceGuide{
+ width:clamp(115px,16vw,185px);
+ height:clamp(145px,21vw,225px);
+
+ margin:auto;
+
+ border-radius:50%;
+
+ border:3px dashed rgba(105,243,255,.75);
+
+ display:flex;
+ align-items:center;
+ justify-content:center;
+
+ background:rgba(0,28,64,.1);
+
+ box-shadow:0 0 25px rgba(64,230,255,.15);
+}
+
+.faceGuide.detected{
+ border-style:solid;
+ border-color:#63ffb0;
+ box-shadow:0 0 30px rgba(85,255,174,.45);
+}
+
+.faceEmoji{
+ font-size:clamp(50px,8vw,90px);
+ opacity:.32;
+}
+
+#moveStatus{
+ display:inline-block;
+
+ margin-top:7px;
+
+ padding:6px 12px;
+
+ border-radius:999px;
+
+ background:rgba(0,20,50,.8);
+
+ border:1px solid rgba(100,240,255,.5);
+
+ color:white;
+
+ font-size:9px;
+
+ backdrop-filter:blur(6px);
+}
+
+/* =====================================================
+   FACE MARKER
+===================================================== */
+
+#faceMarker{
+ position:fixed;
+
+ z-index:80;
+
+ width:100px;
+ height:125px;
+
+ left:50%;
+ top:50%;
+
+ transform:translate(-50%,-50%);
+
+ border:4px solid #5cf8ff;
+
+ border-radius:50%;
+
+ pointer-events:none;
+
+ display:none;
+
+ box-shadow:
+ 0 0 8px #5cf8ff,
+ 0 0 25px rgba(72,241,255,.45);
+}
+
+#faceMarker:before{
+ content:"😊";
+
+ position:absolute;
+
+ left:50%;
+ top:-33px;
+
+ transform:translateX(-50%);
+
+ font-size:23px;
+}
+
+#faceMarker.left{
+ border-color:#ff6577;
+
+ box-shadow:
+ 0 0 12px #ff6577,
+ 0 0 30px rgba(255,70,95,.55);
+}
+
+#faceMarker.right{
+ border-color:#62ff9e;
+
+ box-shadow:
+ 0 0 12px #62ff9e,
+ 0 0 30px rgba(79,255,145,.55);
+}
+
+/* =====================================================
+   HOLD
+===================================================== */
+
+#holdBox{
+ position:absolute;
+ z-index:30;
+
+ left:50%;
+ bottom:67px;
+
+ transform:translateX(-50%);
+
+ width:min(360px,44vw);
+
+ text-align:center;
+
+ pointer-events:none;
+}
+
+#holdLabel{
+ color:white;
+ font-size:8px;
+ font-weight:800;
+ margin-bottom:3px;
+ text-shadow:1px 1px #001a38;
+}
+
+.holdTrack{
+ width:100%;
+ height:10px;
+
+ border-radius:999px;
+
+ overflow:hidden;
+
+ background:rgba(0,10,30,.78);
+
+ border:1px solid rgba(100,239,255,.5);
+}
+
+#holdFill{
+ width:0%;
+ height:100%;
+
+ background:linear-gradient(
+ 90deg,#58f8ff,#ffe45f
+ );
+}
+
+/* =====================================================
+   BOTTOM
+===================================================== */
+
+#bottomHUD{
+ position:absolute;
+ z-index:35;
+
+ bottom:5px;
+
+ left:0;
+ right:0;
+
+ display:flex;
+
+ justify-content:center;
+ align-items:center;
+
+ gap:6px;
+
+ padding:0 5px;
+}
+
+.bottomBadge{
+ min-height:45px;
+
+ padding:4px 9px;
+
+ border-radius:11px;
+
+ display:flex;
+ align-items:center;
+ justify-content:center;
+
+ text-align:center;
+
+ background:rgba(1,25,57,.92);
+
+ border:1px solid #2ebad8;
+
+ color:white;
+
+ font-size:8px;
+
+ backdrop-filter:blur(5px);
+}
+
+.manualBtn{
+ min-height:44px;
+
+ border:0;
+ border-radius:11px;
+
+ padding:6px 12px;
+
+ font-weight:900;
+
+ cursor:pointer;
+}
+
+.falseBtn{
+ background:linear-gradient(#ff8592,#e84358);
+ color:white;
+}
+
+.trueBtn{
+ background:linear-gradient(#72ffab,#28c77a);
+ color:#043923;
+}
+
+/* =====================================================
+   RETURN CENTER
+===================================================== */
+
+#returnCenter{
+ position:absolute;
+
+ z-index:60;
+
+ left:50%;
+ top:51%;
+
+ transform:translate(-50%,-50%);
+
+ width:min(460px,85vw);
+
+ padding:15px;
+
+ text-align:center;
+
+ border-radius:18px;
+
+ background:rgba(0,18,50,.9);
+
+ border:2px solid #61efff;
+
+ color:white;
+
+ backdrop-filter:blur(7px);
+
+ display:none;
+
+ pointer-events:none;
+}
+
+#returnCenter.show{
+ display:block;
+}
+
+.returnIcon{
+ font-size:40px;
+}
+
+.returnTitle{
+ color:#66f6ff;
+ font-weight:900;
+ font-size:16px;
+}
+
+.returnText{
+ margin-top:3px;
+ font-size:10px;
+ color:#d7fbff;
+}
+
+/* =====================================================
+   FLASH / SHAKE
+===================================================== */
+
+#flash{
+ position:fixed;
+ inset:0;
+ z-index:90;
+ background:white;
+ opacity:0;
+ pointer-events:none;
+}
+
+#flash.go{
+ animation:flash .2s;
+}
+
+@keyframes flash{
+ 0%{opacity:.75}
+ 100%{opacity:0}
+}
+
+.shake{
+ animation:shake .2s;
+}
+
+@keyframes shake{
+ 0%{transform:translate(0)}
+ 25%{transform:translate(4px,-3px)}
+ 50%{transform:translate(-4px,3px)}
+ 75%{transform:translate(3px,2px)}
+ 100%{transform:translate(0)}
+}
+
+/* =====================================================
+   FLOAT
+===================================================== */
+
+.floatText{
+ position:fixed;
+
+ z-index:100;
+
+ left:50%;
+ top:50%;
+
+ transform:translate(-50%,-50%);
+
+ font-family:"Bangers",sans-serif;
+
+ letter-spacing:2px;
+
+ font-size:clamp(28px,6vw,65px);
+
+ text-align:center;
+
+ pointer-events:none;
+
+ text-shadow:3px 3px #00234b;
+
+ animation:floatUp 1.15s forwards;
+}
+
+@keyframes floatUp{
+ 0%{
+  opacity:0;
+  transform:translate(-50%,-20%) scale(.5);
+ }
+ 20%{
+  opacity:1;
+  transform:translate(-50%,-50%) scale(1.1);
+ }
+ 100%{
+  opacity:0;
+  transform:translate(-50%,-140%) scale(.9);
+ }
+}
+
+/* =====================================================
+   MODAL
+===================================================== */
+
+.modal{
+ position:fixed;
+ inset:0;
+ z-index:150;
+
+ display:flex;
+
+ align-items:center;
+ justify-content:center;
+
+ padding:14px;
+
+ background:rgba(0,12,34,.93);
+
+ backdrop-filter:blur(8px);
+}
+
+.hidden{
+ display:none!important;
+}
+
+.modalBox{
+ width:min(820px,96vw);
+ max-height:94dvh;
+ overflow:auto;
+
+ padding:19px;
+
+ border-radius:22px;
+
+ color:white;
+}
+
+.bigLogo{
+ text-align:center;
+
+ font-family:"Bangers",sans-serif;
+
+ letter-spacing:3px;
+
+ font-size:clamp(32px,7vw,65px);
+
+ color:#68f7ff;
+
+ text-shadow:4px 4px #00335d;
+}
+
+.modalArabic{
+ text-align:center;
+ font-size:clamp(22px,4vw,35px);
+ color:#fff09a;
+}
+
+.modalSubtitle{
+ text-align:center;
+ color:#b7f9ff;
+ font-weight:800;
+ font-size:12px;
+}
+
+.guide{
+ display:grid;
+ grid-template-columns:repeat(3,1fr);
+ gap:8px;
+ margin:15px 0;
+}
+
+.guideCard{
+ text-align:center;
+ padding:10px 7px;
+ border-radius:14px;
+ background:rgba(79,225,255,.08);
+ border:1px solid rgba(94,235,255,.25);
+}
+
+.guideIcon{
+ font-size:35px;
+}
+
+.guideTitle{
+ margin-top:3px;
+ color:#6ff6ff;
+ font-weight:900;
+ font-size:10px;
+}
+
+.guideText{
+ font-size:9px;
+ opacity:.82;
+}
+
+.startButtons{
+ display:grid;
+ grid-template-columns:1fr 1fr;
+ gap:8px;
+}
+
+.bigBtn{
+ border:0;
+ border-radius:14px;
+ padding:13px;
+ cursor:pointer;
+ font-weight:900;
+ font-size:12px;
+}
+
+.cameraBtn{
+ background:linear-gradient(#69fbff,#21bedb);
+ color:#023348;
+}
+
+.mouseBtn{
+ background:linear-gradient(#ffe574,#f5a63b);
+ color:#3b2500;
+}
+
+/* =====================================================
+   CAMERA DIAGNOSTIC
+===================================================== */
+
+#cameraStatusBox{
+ margin-top:12px;
+ padding:12px;
+
+ border-radius:13px;
+
+ background:rgba(0,0,0,.22);
+
+ border:1px solid rgba(101,240,255,.25);
+
+ font-size:10px;
+
+ line-height:1.6;
+}
+
+.statusTitle{
+ color:#6ef6ff;
+ font-weight:900;
+ font-size:11px;
+ margin-bottom:5px;
+}
+
+.statusLine{
+ display:flex;
+ gap:7px;
+ align-items:flex-start;
+ margin:3px 0;
+}
+
+#cameraError{
+ margin-top:10px;
+ padding:11px;
+
+ border-radius:12px;
+
+ background:rgba(159,25,50,.38);
+
+ border:1px solid #ff7487;
+
+ color:white;
+
+ font-size:10px;
+}
+
+#errorName{
+ color:#ffe371;
+ font-weight:900;
+ font-size:12px;
+}
+
+#errorHelp{
+ margin-top:5px;
+ color:#ffeef1;
+}
+
+.retryBtn{
+ margin-top:8px;
+ width:100%;
+}
+
+/* =====================================================
+   RESULT
+===================================================== */
+
+.resultBox{
+ width:min(590px,95vw);
+ padding:22px;
+ border-radius:22px;
+ color:white;
+ text-align:center;
+}
+
+.resultTitle{
+ font-family:"Bangers",sans-serif;
+ letter-spacing:3px;
+ color:#69f7ff;
+ font-size:clamp(35px,7vw,64px);
+}
+
+#stars{
+ font-size:clamp(35px,7vw,55px);
+ margin:5px 0;
+}
+
+.stats{
+ display:grid;
+ grid-template-columns:repeat(2,1fr);
+ gap:7px;
+ margin:13px 0;
+}
+
+.resultStat{
+ background:rgba(0,7,30,.38);
+ border:1px solid rgba(87,230,255,.2);
+ border-radius:11px;
+ padding:9px;
+}
+
+.resultStat span{
+ display:block;
+ font-size:8px;
+ opacity:.8;
+}
+
+.resultStat strong{
+ display:block;
+ font-size:23px;
+ color:#ffe46c;
+}
+
+/* =====================================================
+   MOBILE
+===================================================== */
+
+@media(max-width:700px){
+
+ .topbar{
+  grid-template-columns:1fr repeat(4,auto);
+  gap:2px;
+  padding:4px;
+ }
+
+ .logoSub{
+  display:none;
+ }
+
+ .stat{
+  font-size:6px;
+  padding:3px;
+ }
+
+ .stat strong{
+  font-size:9px;
+ }
+
+ #questionPanel{
+  top:62px;
+ }
+
+ #verse{
+  font-size:13px;
+ }
+
+ #statementBox{
+  top:128px;
+  padding:4px 8px;
+ }
+
+ #statement{
+  font-size:9px;
+ }
+
+ .choiceZone{
+  top:195px;
+  width:30%;
+ }
+
+ .zoneCard{
+  min-height:115px;
+  border-radius:15px;
+ }
+
+ .zoneIcon{
+  font-size:38px;
+ }
+
+ .zoneTitle{
+  font-size:23px;
+ }
+
+ .faceGuide{
+  width:90px;
+  height:115px;
+ }
+
+ .faceEmoji{
+  font-size:45px;
+ }
+
+ .bottomBadge{
+  font-size:6px;
+ }
+
+ .manualBtn{
+  font-size:8px;
+  padding:5px 7px;
+ }
+
+ .guide{
+  gap:4px;
+ }
+
+ .startButtons{
+  grid-template-columns:1fr;
+ }
+
+ #faceMarker{
+  width:70px;
+  height:90px;
+ }
+
+}
+
+</style>
+</head>
+
+<body>
+
+<div id="game">
+
+<!-- OCEAN -->
+
+<div id="ocean">
+
+ <div class="ray r1"></div>
+ <div class="ray r2"></div>
+ <div class="ray r3"></div>
+
+ <div class="fish f1">🐠</div>
+ <div class="fish f2">🐟</div>
+ <div class="fish f3">🐡</div>
+
+ <div class="coral c1">🪸</div>
+ <div class="coral c2">🪸</div>
+ <div class="coral c3">🌿</div>
+
+ <div class="seabed"></div>
+
+</div>
+
+<!-- CAMERA -->
+
+<video
+ id="cameraVideo"
+ autoplay
+ muted
+ playsinline>
+</video>
+
+<div id="cameraTint"></div>
+
+<canvas id="fxCanvas"></canvas>
+
+<!-- HUD -->
+
+<div id="hud">
+
+ <div class="topbar glass">
+
+  <div class="logo">
+
+   <div class="logoTitle">
+    📸 KAMERA AJAIB TAFSIR
+   </div>
+
+   <div class="logoSub">
+    AR HEAD TRACKING • شرح الآيات
+   </div>
+
+  </div>
+
+  <div class="stat">
+   🌊 ROUND
+   <strong id="roundText">1/5</strong>
+  </div>
+
+  <div class="stat">
+   🎯 SOALAN
+   <strong id="questionCount">1/20</strong>
+  </div>
+
+  <div class="stat">
+   💎 MATA
+   <strong id="scoreText">0</strong>
+  </div>
+
+  <div class="stat">
+   🔥 COMBO
+   <strong id="comboText">x1</strong>
+  </div>
+
+ </div>
+
+ <div class="progressBox">
+  <div id="progress"></div>
+ </div>
+
+</div>
+
+<!-- QUESTION -->
+
+<div id="questionPanel">
+
+ <div class="questionCard">
+
+  <div class="questionLabel">
+   🧠 ADAKAH SYARAH AYAT INI BETUL?
+  </div>
+
+  <div id="surahName">
+   سورة التكوير
+  </div>
+
+  <div
+   id="verse"
+   class="arabic"
+   dir="rtl">
+  </div>
+
+ </div>
+
+</div>
+
+<!-- STATEMENT -->
+
+<div id="statementBox">
+
+ <div class="statementTitle">
+  💬 SYARAH YANG DIPAPARKAN
+ </div>
+
+ <div
+  id="statement"
+  class="arabic"
+  dir="rtl">
+ </div>
+
+</div>
+
+<!-- FALSE -->
+
+<div
+ id="falseZone"
+ class="choiceZone">
+
+ <div class="zoneCard falseCard">
+
+  <div class="zoneIcon">
+   ❌
+  </div>
+
+  <div class="zoneTitle">
+   SALAH
+  </div>
+
+  <div class="zoneHint">
+   ← GERAK KEPALA KE KIRI
+  </div>
+
+ </div>
+
+</div>
+
+<!-- CENTER -->
+
+<div id="centerGuide">
+
+ <div
+  id="faceGuide"
+  class="faceGuide">
+
+  <div class="faceEmoji">
+   😊
+  </div>
+
+ </div>
+
+ <div id="moveStatus">
+  😊 LETAK KEPALA DI TENGAH
+ </div>
+
+</div>
+
+<!-- TRUE -->
+
+<div
+ id="trueZone"
+ class="choiceZone">
+
+ <div class="zoneCard trueCard">
+
+  <div class="zoneIcon">
+   ✅
+  </div>
+
+  <div class="zoneTitle">
+   BETUL
+  </div>
+
+  <div class="zoneHint">
+   GERAK KEPALA KE KANAN →
+  </div>
+
+ </div>
+
+</div>
+
+<!-- HOLD -->
+
+<div id="holdBox">
+
+ <div id="holdLabel">
+  😊 GERAK KEPALA KE KIRI ATAU KANAN
+ </div>
+
+ <div class="holdTrack">
+  <div id="holdFill"></div>
+ </div>
+
+</div>
+
+<!-- FACE MARKER -->
+
+<div id="faceMarker"></div>
+
+<!-- RETURN -->
+
+<div id="returnCenter">
+
+ <div class="returnIcon">
+  ↩️😊
+ </div>
+
+ <div class="returnTitle">
+  KEMBALI KE TENGAH!
+ </div>
+
+ <div class="returnText">
+  Bawa kepala semula ke tengah sebelum menjawab soalan seterusnya.
+ </div>
+
+</div>
+
+<!-- BOTTOM -->
+
+<div id="bottomHUD">
+
+ <div
+  id="trackingStatus"
+  class="bottomBadge">
+  📷 Kamera belum aktif
+ </div>
+
+ <div class="bottomBadge">
+  ← ❌ SALAH &nbsp; 😊 &nbsp; BETUL ✅ →
+ </div>
+
+ <button
+  id="falseButton"
+  class="manualBtn falseBtn">
+  ❌ SALAH
+ </button>
+
+ <button
+  id="trueButton"
+  class="manualBtn trueBtn">
+  ✅ BETUL
+ </button>
+
+</div>
+
+<div id="flash"></div>
+
+</div>
+
+
+<!-- ===================================================
+     START MODAL
+=================================================== -->
+
+<div
+ id="startModal"
+ class="modal">
+
+ <div class="modalBox glass">
+
+  <div class="bigLogo">
+   🐠 KAMERA AJAIB TAFSIR
+  </div>
+
+  <div
+   class="modalArabic arabic"
+   dir="rtl">
+   شَرْحُ الْآيَاتِ
+  </div>
+
+  <div class="modalSubtitle">
+   📸 AR HEAD TRACKING — MISI BETUL ATAU SALAH
+  </div>
+
+  <div class="guide">
+
+   <div class="guideCard">
+
+    <div class="guideIcon">
+     😊
+    </div>
+
+    <div class="guideTitle">
+     1. HADAP KAMERA
+    </div>
+
+    <div class="guideText">
+     Pastikan muka dapat dilihat dengan jelas.
+    </div>
+
+   </div>
+
+   <div class="guideCard">
+
+    <div class="guideIcon">
+     👈😊
+    </div>
+
+    <div class="guideTitle">
+     2. SALAH
+    </div>
+
+    <div class="guideText">
+     Gerakkan kepala ke KIRI untuk memilih SALAH.
+    </div>
+
+   </div>
+
+   <div class="guideCard">
+
+    <div class="guideIcon">
+     😊👉
+    </div>
+
+    <div class="guideTitle">
+     3. BETUL
+    </div>
+
+    <div class="guideText">
+     Gerakkan kepala ke KANAN untuk memilih BETUL.
+    </div>
+
+   </div>
+
+  </div>
+
+  <div class="startButtons">
+
+   <button
+    id="cameraStart"
+    class="bigBtn cameraBtn">
+
+    📹 BUKA KAMERA & MULA
+
+   </button>
+
+   <button
+    id="manualStart"
+    class="bigBtn mouseBtn">
+
+    🖱️ MAIN TANPA KAMERA
+
+   </button>
+
+  </div>
+
+  <!-- CAMERA DIAGNOSTIC -->
+
+  <div id="cameraStatusBox">
+
+   <div class="statusTitle">
+    🔍 STATUS KAMERA
+   </div>
+
+   <div class="statusLine">
+    <span id="secureIcon">⏳</span>
+    <span id="secureStatus">
+     Memeriksa keselamatan laman...
+    </span>
+   </div>
+
+   <div class="statusLine">
+    <span id="apiIcon">⏳</span>
+    <span id="apiStatus">
+     Memeriksa sokongan kamera...
+    </span>
+   </div>
+
+   <div class="statusLine">
+    <span id="modelIcon">⏳</span>
+    <span id="modelStatus">
+     Model pengesanan wajah belum dimulakan.
+    </span>
+   </div>
+
+  </div>
+
+  <div
+   id="cameraError"
+   class="hidden">
+
+   <div id="errorName">
+    ⚠️ CAMERA ERROR
+   </div>
+
+   <div id="errorMessage">
+   </div>
+
+   <div id="errorHelp">
+   </div>
+
+   <button
+    id="retryCamera"
+    class="bigBtn cameraBtn retryBtn">
+
+    🔄 CUBA KAMERA LAGI
+
+   </button>
+
+  </div>
+
+ </div>
+
+</div>
+
+
+<!-- ===================================================
+     RESULT
+=================================================== -->
+
+<div
+ id="victoryModal"
+ class="modal hidden">
+
+ <div class="resultBox glass">
+
+  <div class="resultTitle">
+   🏆 MISI SELESAI!
+  </div>
+
+  <div
+   class="arabic"
+   dir="rtl"
+   style="font-size:28px;color:#fff19a;">
+   أَحْسَنْتُمْ!
+  </div>
+
+  <div id="stars">
+   ⭐⭐⭐
+  </div>
+
+  <div style="color:#a9f7ff;font-size:11px;">
+   Influencer Tafsir berjaya menamatkan Misi Lautan Ilmu!
+  </div>
+
+  <div class="stats">
+
+   <div class="resultStat">
+    <span>💎 JUMLAH MATA</span>
+    <strong id="finalScore">0</strong>
+   </div>
+
+   <div class="resultStat">
+    <span>🔥 COMBO TERTINGGI</span>
+    <strong id="finalCombo">x1</strong>
+   </div>
+
+   <div class="resultStat">
+    <span>✅ BETUL</span>
+    <strong id="finalCorrect">0/20</strong>
+   </div>
+
+   <div class="resultStat">
+    <span>🎯 KETEPATAN</span>
+    <strong id="finalAccuracy">0%</strong>
+   </div>
+
+  </div>
+
+  <div class="startButtons">
+
+   <button
+    id="replayButton"
+    class="bigBtn cameraBtn">
+    🔄 MAIN SEMULA
+   </button>
+
+   <button
+    id="menuButton"
+    class="bigBtn mouseBtn">
+    🏠 MENU
+   </button>
+
+  </div>
+
+ </div>
+
+</div>
+
+
+<script>
+
+/* ==========================================================
+   BANK SOALAN
+========================================================== */
+
+const BANK=[
+
+{
+surah:"سورة التكوير",
+verse:"وَإِذَا ٱلْجِبَالُ سُيِّرَتْ",
+meaning:"عن وجه الأرض وأبعدت / سييرت في الجو تسيير السحاب"
+},
+
+{
+surah:"سورة التكوير",
+verse:"بِأَىِّ ذَنۢبٍۢ قُتِلَتْ",
+meaning:"دليل على أن أطفال المشركين لا يعذبون / وعلى أن التعذيب لا يكون بلا ذنب"
+},
+
+{
+surah:"سورة التكوير",
+verse:"ذِي قُوَّةٍ...",
+meaning:"قدرة على ما يكلف"
+},
+
+{
+surah:"سورة الأعلى",
+verse:"سَبِّحِ ٱسْمَ رَبِّكَ ٱلْأَعْلَى",
+meaning:"تنزيه ذاته عن كل ما يليق به"
+},
+
+{
+surah:"سورة الأعلى",
+verse:"ٱلَّذِى يَصْلَى ٱلنَّارَ ٱلْكُبْرَىٰ",
+meaning:"يدخل نار جهنم، والصغرى: نار الدنيا"
+},
+
+{
+surah:"سورة الأعلى",
+verse:"إِلَّا مَا شَآءَ ٱللَّهُ ۚ إِنَّهُۥ يَعْلَمُ ٱلْجَهْرَ وَمَا يَخْفَىٰ",
+meaning:"والله يعلم جهرك معه"
+},
+
+{
+surah:"سورة الأعلى",
+verse:"قَدْ أَفْلَحَ مَن تَزَكَّىٰ",
+meaning:"نال فوز تطهر من الشرك"
+},
+
+{
+surah:"سورة الضحى",
+verse:"وَلَلْـَٔاخِرَةُ خَيْر لَّكَ مِنَ ٱلْأُولَىٰ",
+meaning:"ما أعد الله لك في الآخرة من المقام المحمود"
+},
+
+{
+surah:"سورة الضحى",
+verse:"أَلَمْ يَجِدْكَ يَتِيمًا فَـَٔاوَىٰ",
+meaning:"ألم تكون يتيما حين أبواك، فآوك إلى عمك أبي طالب"
+},
+
+{
+surah:"سورة الضحى",
+verse:"وَأَمَّا بِنِعْمَةِ رَبِّكَ فَحَدِّثْ",
+meaning:"حدث بجميع نعم ربك عليك وخاصة نعمة النبوة والقرآن"
+},
+
+{
+surah:"سورة التين",
+verse:"وَٱلتِّينِ وَٱلزَّيْتُونِ",
+meaning:"أقسام بهما، لأنهما عجيبان من بين الأشجار المثمرة"
+},
+
+{
+surah:"سورة التين",
+verse:"ثُمَّ رَدَدْنَـٰهُ أَسْفَلَ سَـٰفِلِينَ",
+meaning:"جعلناه من أصحاب النار التي هي أسفل الدركات"
+},
+
+{
+surah:"سورة التين",
+verse:"أَلَيْسَ ٱللَّهُ بِأَحْكَمِ ٱلْحَـٰكِمِينَ",
+meaning:"وعيد للكفار وأنه يحكم عليهم بما هم أهله"
+},
+
+{
+surah:"سورة الزلزلة",
+verse:"إِذَا زُلْزِلَتِ ٱلْأَرْضُ زِلْزَالَهَا",
+meaning:"اضطربت اضطرابا شديدا وهو الزلزال الذي ليس بعده زلزال"
+},
+
+{
+surah:"سورة الزلزلة",
+verse:"فَمَن يَعْمَلْ مِثْقَالَ ذَرَّةٍ خَيْرًا يَرَهُۥ",
+meaning:"عملا يسيرا تمييز ويرى جزاءه"
+},
+
+{
+surah:"سورة الزلزلة",
+verse:"وَمَن يَعْمَلْ مِثْقَالَ ذَرَّةٍۢ شَرًّا يَرَهُۥ",
+meaning:"هذا في الكفار والأول في المؤمنين"
+},
+
+{
+surah:"سورة القارعة",
+verse:"يَوْمَ يَكُونُ ٱلنَّاسُ كَٱلْفَرَاشِ ٱلْمَبْثُوثِ",
+meaning:"شبههم بالفراشة في الكثرة والإنتشار إلى الداعي من كل جانب"
+},
+
+{
+surah:"سورة القارعة",
+verse:"وَتَكُونُ ٱلْجِبَالُ كَٱلْعِهْنِ ٱلْمَنفُوشِ",
+meaning:"شبه الجبال كالعهن وهو الصوف المصبغ ألوانا لتفرق أجزائها"
+},
+
+{
+surah:"سورة التكاثر",
+verse:"حَتَّىٰ زُرْتُمُ ٱلْمَقَابِرَ",
+meaning:"حتى أدرككم الموت على تلك الحال"
+},
+
+{
+surah:"سورة التكاثر",
+verse:"ثُمَّ لَتَرَوُنَّهَا عَيْنَ ٱلْيَقِينِ",
+meaning:"الرؤية التي هي نفس اليقين وخالصته"
+},
+
+{
+surah:"سورة التكاثر",
+verse:"ثُمَّ لَتُسْـَٔلُنَّ يَوْمَئِذٍ عَنِ ٱلنَّعِيمِ",
+meaning:"عن الأمن والصحة فيما أفنيتموهما"
+},
+
+{
+surah:"سورة العصر",
+verse:"إِنَّ ٱلْإِنسَـٰنَ لَفِى خُسْرٍ",
+meaning:"جنس الإنسان لفي خسران من تجارتهم"
+},
+
+{
+surah:"سورة العصر",
+verse:"إِلَّا ٱلَّذِينَ ءَامَنُوا وَعَمِلُوا ٱلصَّـٰلِحَـٰتِ وَتَوَاصَوْا بِٱلْحَقِّ وَتَوَاصَوْا بِٱلصَّبْرِ",
+meaning:"فإنهم اشتروا الآخرة بالدنيا، فربحوا وسعدوا، بالأمر الثابت الذي لا يسوغ إنكاره، عن المعاصي وعلى الطاعات وعلى ما يبلو به الله عباده"
+},
+
+{
+surah:"سورة الفيل",
+verse:"أَلَمْ يَجْعَلْ كَيْدَهُمْ فِى تَضْلِيلٍۢ",
+meaning:"في تضييع وإبطال يعنى: أنهم كادوا البيت أولا ببناء كنيسة القليس ليصرفوا وجوه الحجاج إليها، فضلل كيدهم بإيقاع الحريق فيها"
+},
+
+{
+surah:"سورة النصر",
+verse:"إِذَا جَآءَ نَصْرُ ٱللَّهِ وَٱلْفَتْحُ",
+meaning:"النصر: الإغاثة على العدو، والفتح: نصر الله على العرب أو على قريش وفتح مكة"
+},
+
+{
+surah:"سورة النصر",
+verse:"فَسَبِّحْ بِحَمْدِ رَبِّكَ وَٱسْتَغْفِرْهُ ۚ إِنَّهُۥ كَانَ تَوَّابًۢا ۚ",
+meaning:"سبحان الله حامدا له ودم على الإستغفار"
+},
+
+{
+surah:"سورة الإخلاص",
+verse:"لَمْ يَلِدْ وَلَمْ يُولَدْ",
+meaning:"لأنه لا يجانس، وهو قديم لا أول لوجوده"
+},
+
+{
+surah:"سورة الفلق",
+verse:"وَمِن شَرِّ حَاسِدٍ إِذَا حَسَدَ",
+meaning:"هو الضار لنفسه لإغتمامه بسرور غيره"
+},
+
+{
+surah:"سورة الناس",
+verse:"مِنَ ٱلْجِنَّةِ وَٱلنَّاسِ",
+meaning:"بيان للذي يوسوس على أن الشيطان ضربان جني وإنسي"
+}
+
+];
+
+
+/* ==========================================================
+   DOM
+========================================================== */
+
+const game=document.getElementById("game");
+
+const video=document.getElementById("cameraVideo");
+
+const surahEl=document.getElementById("surahName");
+
+const verseEl=document.getElementById("verse");
+
+const statementEl=document.getElementById("statement");
+
+const falseZone=document.getElementById("falseZone");
+
+const trueZone=document.getElementById("trueZone");
+
+const faceGuide=document.getElementById("faceGuide");
+
+const faceMarker=document.getElementById("faceMarker");
+
+const moveStatus=document.getElementById("moveStatus");
+
+const holdFill=document.getElementById("holdFill");
+
+const holdLabel=document.getElementById("holdLabel");
+
+const returnCenter=document.getElementById("returnCenter");
+
+const trackingStatus=document.getElementById("trackingStatus");
+
+const progress=document.getElementById("progress");
+
+const roundText=document.getElementById("roundText");
+
+const questionCount=document.getElementById("questionCount");
+
+const scoreText=document.getElementById("scoreText");
+
+const comboText=document.getElementById("comboText");
+
+const startModal=document.getElementById("startModal");
+
+const victoryModal=document.getElementById("victoryModal");
+
+const cameraError=document.getElementById("cameraError");
+
+const errorName=document.getElementById("errorName");
+
+const errorMessage=document.getElementById("errorMessage");
+
+const errorHelp=document.getElementById("errorHelp");
+
+const flash=document.getElementById("flash");
+
+const canvas=document.getElementById("fxCanvas");
+
+const ctx=canvas.getContext("2d");
+
+
+/* ==========================================================
+   STATE
+========================================================== */
+
+let questions=[];
+
+let current=0;
+
+let score=0;
+
+let correctCount=0;
+
+let combo=1;
+
+let bestCombo=1;
+
+let gameActive=false;
+
+let cameraMode=false;
+
+let answering=false;
+
+let waitingForCenter=false;
+
+let stream=null;
+
+let faceDetection=null;
+
+let detectionLoopRunning=false;
+
+let processingFrame=false;
+
+let audioCtx=null;
+
+let particles=[];
+
+let activeZone=null;
+
+let zoneStart=0;
+
+let centerStart=0;
+
+let smoothX=.5;
+
+let smoothY=.5;
+
+
+/* ==========================================================
+   SETTINGS
+========================================================== */
+
+const LEFT_THRESHOLD=.36;
+
+const RIGHT_THRESHOLD=.64;
+
+const HOLD_TIME=800;
+
+const CENTER_HOLD_TIME=400;
+
+const SMOOTHING=.20;
+
+
+/* ==========================================================
+   ENVIRONMENT CHECK
+========================================================== */
+
+function checkEnvironment(){
+
+ const secureIcon=
+ document.getElementById("secureIcon");
+
+ const secureStatus=
+ document.getElementById("secureStatus");
+
+ const apiIcon=
+ document.getElementById("apiIcon");
+
+ const apiStatus=
+ document.getElementById("apiStatus");
+
+
+ const secure=
+ window.isSecureContext ||
+ location.hostname==="localhost" ||
+ location.hostname==="127.0.0.1";
+
+
+ if(secure){
+
+  secureIcon.textContent="✅";
+
+  secureStatus.textContent=
+  "Secure context dikesan.";
+
+ }else{
+
+  secureIcon.textContent="❌";
+
+  secureStatus.textContent=
+  "Laman ini bukan HTTPS. Kamera mungkin disekat.";
+
+ }
+
+
+ const supported=
+ !!(
+  navigator.mediaDevices &&
+  navigator.mediaDevices.getUserMedia
+ );
+
+
+ if(supported){
+
+  apiIcon.textContent="✅";
+
+  apiStatus.textContent=
+  "Browser menyokong akses kamera.";
+
+ }else{
+
+  apiIcon.textContent="❌";
+
+  apiStatus.textContent=
+  "Browser ini tidak menyediakan Camera API.";
+
+ }
+
+}
+
+checkEnvironment();
+
+
+/* ==========================================================
+   SHUFFLE
+========================================================== */
+
+function shuffle(array){
+
+ const a=[...array];
+
+ for(let i=a.length-1;i>0;i--){
+
+  const j=
+  Math.floor(
+   Math.random()*(i+1)
+  );
+
+  [a[i],a[j]]=
+  [a[j],a[i]];
+
+ }
+
+ return a;
+
+}
+
+
+/* ==========================================================
+   QUESTIONS
+========================================================== */
+
+function generateQuestions(){
+
+ const selected=
+ shuffle(BANK).slice(0,20);
+
+
+ const pattern=
+ shuffle([
+
+  true,true,true,true,true,
+  true,true,true,true,true,
+
+  false,false,false,false,false,
+  false,false,false,false,false
+
+ ]);
+
+
+ return selected.map(
+ (item,index)=>{
+
+  const correctAnswer=
+  pattern[index];
+
+  let shownMeaning=
+  item.meaning;
+
+
+  if(!correctAnswer){
+
+   /*
+   Prefer distractor from same surah
+   where possible.
+   */
+
+   let pool=
+   BANK.filter(
+    x=>
+    x.surah===item.surah &&
+    x.meaning!==item.meaning
+   );
+
+
+   if(pool.length===0){
+
+    pool=
+    BANK.filter(
+     x=>
+     x.meaning!==item.meaning
+    );
+
+   }
+
+
+   shownMeaning=
+   shuffle(pool)[0].meaning;
+
+  }
+
+
+  return{
+
+   surah:item.surah,
+
+   verse:item.verse,
+
+   correctMeaning:item.meaning,
+
+   shownMeaning:shownMeaning,
+
+   correctAnswer:correctAnswer
+
+  };
+
+ });
+
+}
+
+
+/* ==========================================================
+   AUDIO
+========================================================== */
+
+function initAudio(){
+
+ if(!audioCtx){
+
+  audioCtx=
+  new(
+   window.AudioContext||
+   window.webkitAudioContext
+  )();
+
+ }
+
+ if(audioCtx.state==="suspended"){
+  audioCtx.resume();
+ }
+
+}
+
+
+function tone(
+ frequency,
+ duration,
+ type="sine",
+ volume=.06,
+ delay=0
+){
+
+ if(!audioCtx)return;
+
+
+ const osc=
+ audioCtx.createOscillator();
+
+ const gain=
+ audioCtx.createGain();
+
+
+ osc.type=type;
+
+
+ osc.frequency.setValueAtTime(
+  frequency,
+  audioCtx.currentTime+delay
+ );
+
+
+ gain.gain.setValueAtTime(
+  volume,
+  audioCtx.currentTime+delay
+ );
+
+
+ gain.gain.exponentialRampToValueAtTime(
+  .001,
+  audioCtx.currentTime+
+  delay+
+  duration
+ );
+
+
+ osc.connect(gain);
+
+ gain.connect(audioCtx.destination);
+
+
+ osc.start(
+  audioCtx.currentTime+delay
+ );
+
+
+ osc.stop(
+  audioCtx.currentTime+
+  delay+
+  duration
+ );
+
+}
+
+
+function lockSound(){
+
+ tone(700,.07,"sine",.035);
+
+ tone(950,.08,"sine",.025,.04);
+
+}
+
+
+function centerSound(){
+
+ tone(520,.08,"sine",.03);
+
+ tone(720,.1,"sine",.025,.05);
+
+}
+
+
+function correctSound(){
+
+ tone(523,.25,"sine",.07);
+
+ tone(659,.28,"sine",.06,.06);
+
+ tone(784,.32,"triangle",.055,.13);
+
+ tone(1047,.36,"triangle",.05,.20);
+
+}
+
+
+function wrongSound(){
+
+ tone(130,.22,"sawtooth",.065);
+
+ tone(90,.28,"square",.035,.04);
+
+}
+
+
+function fanfare(){
+
+ [
+  [392,0],
+  [523,.12],
+  [659,.24],
+  [784,.37],
+  [1047,.55],
+  [1318,.72]
+ ].forEach(n=>{
+
+  tone(
+   n[0],
+   .4,
+   "triangle",
+   .065,
+   n[1]
+  );
+
+ });
+
+}
+
+
+/* ==========================================================
+   BUBBLES
+========================================================== */
+
+function createBubbles(){
+
+ const ocean=
+ document.getElementById("ocean");
+
+
+ for(let i=0;i<22;i++){
+
+  const b=
+  document.createElement("div");
+
+  b.className="bubble";
+
+
+  const size=
+  Math.random()*23+7;
+
+
+  b.style.width=size+"px";
+
+  b.style.height=size+"px";
+
+  b.style.left=
+  Math.random()*100+"%";
+
+  b.style.animationDuration=
+  (Math.random()*8+7)+"s";
+
+  b.style.animationDelay=
+  (-Math.random()*15)+"s";
+
+
+  ocean.appendChild(b);
+
+ }
+
+}
+
+createBubbles();
+
+
+/* ==========================================================
+   CANVAS
+========================================================== */
+
+function resizeCanvas(){
+
+ canvas.width=innerWidth;
+
+ canvas.height=innerHeight;
+
+}
+
+resizeCanvas();
+
+window.addEventListener(
+ "resize",
+ resizeCanvas
+);
+
+
+function burst(
+ x,
+ y,
+ color,
+ amount=40
+){
+
+ for(let i=0;i<amount;i++){
+
+  particles.push({
+
+   x:x,
+   y:y,
+
+   vx:(Math.random()-.5)*12,
+
+   vy:(Math.random()-.5)*12,
+
+   size:Math.random()*5+2,
+
+   life:1,
+
+   color:color
+
+  });
+
+ }
+
+}
+
+
+function animateParticles(){
+
+ ctx.clearRect(
+  0,
+  0,
+  canvas.width,
+  canvas.height
+ );
+
+
+ particles.forEach(p=>{
+
+  p.x+=p.vx;
+
+  p.y+=p.vy;
+
+  p.vy+=.15;
+
+  p.life-=.025;
+
+
+  ctx.globalAlpha=
+  Math.max(0,p.life);
+
+
+  ctx.fillStyle=p.color;
+
+
+  ctx.beginPath();
+
+  ctx.arc(
+   p.x,
+   p.y,
+   p.size,
+   0,
+   Math.PI*2
+  );
+
+  ctx.fill();
+
+ });
+
+
+ ctx.globalAlpha=1;
+
+
+ particles=
+ particles.filter(
+  p=>p.life>0
+ );
+
+
+ requestAnimationFrame(
+  animateParticles
+ );
+
+}
+
+animateParticles();
+
+
+/* ==========================================================
+   FLOAT TEXT
+========================================================== */
+
+function floatingText(
+ text,
+ color
+){
+
+ const el=
+ document.createElement("div");
+
+ el.className="floatText";
+
+ el.textContent=text;
+
+ el.style.color=color;
+
+ document.body.appendChild(el);
+
+
+ setTimeout(
+  ()=>el.remove(),
+  1150
+ );
+
+}
+
+
+/* ==========================================================
+   CAMERA ERROR
+========================================================== */
+
+function showCameraError(error){
+
+ cameraError.classList.remove(
+  "hidden"
+ );
+
+
+ const name=
+ error?.name ||
+ "CameraError";
+
+
+ let message=
+ error?.message ||
+ "Kamera tidak dapat dibuka.";
+
+
+ let help=
+ "Cuba refresh halaman dan tekan BUKA KAMERA sekali lagi.";
+
+
+ if(name==="NotAllowedError"){
+
+  message=
+  "Browser tidak membenarkan akses kamera.";
+
+  help=
+  "Tekan ikon kamera / lock pada browser dan pilih Allow. Jika permission pernah ditolak, ubah Camera Permission kepada Allow dan refresh halaman.";
+
+ }
+
+
+ else if(name==="NotFoundError"){
+
+  message=
+  "Tiada kamera yang dapat dikesan.";
+
+  help=
+  "Pastikan peranti mempunyai webcam atau kamera hadapan dan ia tidak dinyahaktifkan.";
+
+ }
+
+
+ else if(
+  name==="NotReadableError" ||
+  name==="TrackStartError"
+ ){
+
+  message=
+  "Kamera dijumpai tetapi tidak dapat digunakan.";
+
+  help=
+  "Tutup Zoom, Google Meet, Teams atau aplikasi lain yang mungkin sedang menggunakan kamera, kemudian cuba semula.";
+
+ }
+
+
+ else if(
+  name==="OverconstrainedError"
+ ){
+
+  message=
+  "Tetapan kamera yang diminta tidak disokong.";
+
+  help=
+  "Game akan cuba menggunakan tetapan kamera yang lebih asas apabila cikgu tekan Cuba Kamera Lagi.";
+
+ }
+
+
+ else if(name==="SecurityError"){
+
+  message=
+  "Browser menyekat kamera atas faktor keselamatan.";
+
+  help=
+  "Pastikan game dibuka melalui HTTPS. Jika berada dalam iframe/Google Sites, cuba buka URL game secara terus.";
+
+ }
+
+
+ else if(name==="AbortError"){
+
+  message=
+  "Proses membuka kamera terhenti.";
+
+  help=
+  "Tunggu beberapa saat dan cuba semula.";
+
+ }
+
+
+ errorName.textContent=
+ "⚠️ "+name;
+
+
+ errorMessage.textContent=
+ message;
+
+
+ errorHelp.textContent=
+ help;
+
+
+ trackingStatus.textContent=
+ "🔴 Kamera gagal dibuka";
+
+}
+
+
+/* ==========================================================
+   STOP CAMERA
+========================================================== */
+
+function stopCamera(){
+
+ detectionLoopRunning=false;
+
+
+ if(stream){
+
+  stream.getTracks().forEach(
+   track=>track.stop()
+  );
+
+  stream=null;
+
+ }
+
+
+ video.srcObject=null;
+
+ video.style.display="none";
+
+ faceMarker.style.display="none";
+
+}
+
+
+/* ==========================================================
+   GET USER MEDIA
+========================================================== */
+
+async function requestCamera(){
+
+ if(
+  !navigator.mediaDevices ||
+  !navigator.mediaDevices.getUserMedia
+ ){
+
+  throw new Error(
+   "Browser ini tidak menyokong navigator.mediaDevices.getUserMedia()."
+  );
+
+ }
+
+
+ /*
+ First attempt:
+ front-facing camera + good resolution.
+ */
+
+ try{
+
+  return await navigator.mediaDevices.getUserMedia({
+
+   audio:false,
+
+   video:{
+
+    facingMode:{
+     ideal:"user"
+    },
+
+    width:{
+     ideal:1280
+    },
+
+    height:{
+     ideal:720
+    }
+
+   }
+
+  });
+
+
+ }catch(firstError){
+
+  /*
+  Important:
+  do NOT retry permission errors.
+  */
+
+  if(
+   firstError.name==="NotAllowedError" ||
+   firstError.name==="SecurityError"
+  ){
+
+   throw firstError;
+
+  }
+
+
+  /*
+  Fallback:
+  simplest possible camera constraint.
+  */
+
+  return await navigator.mediaDevices.getUserMedia({
+
+   audio:false,
+
+   video:true
+
+  });
+
+ }
+
+}
+
+
+/* ==========================================================
+   FACE DETECTION
+========================================================== */
+
+async function setupFaceDetection(){
+
+ if(faceDetection){
+  return;
+ }
+
+
+ const modelIcon=
+ document.getElementById("modelIcon");
+
+ const modelStatus=
+ document.getElementById("modelStatus");
+
+
+ modelIcon.textContent="⏳";
+
+ modelStatus.textContent=
+ "Memuatkan model pengesanan wajah...";
+
+
+ faceDetection=
+ new FaceDetection({
+
+  locateFile:file=>
+  `https://cdn.jsdelivr.net/npm/@mediapipe/face_detection/${file}`
+
+ });
+
+
+ faceDetection.setOptions({
+
+  model:"short",
+
+  minDetectionConfidence:.5
+
+ });
+
+
+ faceDetection.onResults(
+  handleFaceResults
+ );
+
+
+ modelIcon.textContent="✅";
+
+ modelStatus.textContent=
+ "Model Face Detection sedia digunakan.";
+
+}
+
+
+/* ==========================================================
+   START CAMERA
+========================================================== */
+
+async function startCamera(){
+
+ initAudio();
+
+
+ cameraError.classList.add(
+  "hidden"
+ );
+
+
+ trackingStatus.textContent=
+ "⏳ Membuka kamera...";
+
+
+ /*
+ Stop old camera first.
+ */
+
+ stopCamera();
+
+
+ try{
+
+  if(
+   !window.isSecureContext &&
+   location.hostname!=="localhost" &&
+   location.hostname!=="127.0.0.1"
+  ){
+
+   const secureError=
+   new Error(
+    "Camera API memerlukan HTTPS atau localhost."
+   );
+
+   secureError.name=
+   "SecurityError";
+
+   throw secureError;
+
+  }
+
+
+  await setupFaceDetection();
+
+
+  stream=
+  await requestCamera();
+
+
+  video.srcObject=
+  stream;
+
+
+  video.style.display=
+  "block";
+
+
+  /*
+  Wait for camera metadata.
+  */
+
+  await new Promise(
+   (resolve,reject)=>{
+
+    const timer=
+    setTimeout(
+     ()=>reject(
+      new Error(
+       "Camera video mengambil masa terlalu lama untuk dimulakan."
+      )
+     ),
+     10000
+    );
+
+
+    video.onloadedmetadata=
+    ()=>{
+
+     clearTimeout(timer);
+
+     resolve();
+
+    };
+
+   }
+  );
+
+
+  await video.play();
+
+
+  cameraMode=true;
+
+
+  trackingStatus.textContent=
+  "🟢 Kamera aktif — mencari wajah";
+
+
+  startGame();
+
+
+  startDetectionLoop();
+
+
+ }catch(error){
+
+  console.error(
+   "CAMERA ERROR:",
+   error
+  );
+
+
+  cameraMode=false;
+
+
+  stopCamera();
+
+
+  showCameraError(error);
+
+ }
+
+}
+
+
+/* ==========================================================
+   DETECTION LOOP
+========================================================== */
+
+function startDetectionLoop(){
+
+ if(detectionLoopRunning){
+  return;
+ }
+
+
+ detectionLoopRunning=true;
+
+
+ const loop=
+ async()=>{
+
+  if(
+   !detectionLoopRunning
+  ){
+   return;
+  }
+
+
+  if(
+   cameraMode &&
+   faceDetection &&
+   video.readyState>=2 &&
+   !processingFrame
+  ){
+
+   processingFrame=true;
+
+
+   try{
+
+    await faceDetection.send({
+     image:video
+    });
+
+   }catch(error){
+
+    console.warn(
+     "Face frame error:",
+     error
+    );
+
+   }finally{
+
+    processingFrame=false;
+
+   }
+
+  }
+
+
+  requestAnimationFrame(loop);
+
+ };
+
+
+ requestAnimationFrame(loop);
+
+}
+
+
+/* ==========================================================
+   FACE RESULT
+========================================================== */
+
+function handleFaceResults(results){
+
+ if(
+  !cameraMode ||
+  !gameActive
+ ){
+  return;
+ }
+
+
+ if(
+  !results.detections ||
+  results.detections.length===0
+ ){
+
+  trackingStatus.textContent=
+  "🔴 Wajah tidak dikesan";
+
+  faceMarker.style.display=
+  "none";
+
+  faceGuide.classList.remove(
+   "detected"
+  );
+
+
+  falseZone.classList.remove(
+   "active"
+  );
+
+  trueZone.classList.remove(
+   "active"
+  );
+
+
+  activeZone=null;
+
+  zoneStart=0;
+
+  centerStart=0;
+
+  holdFill.style.width="0%";
+
+
+  moveStatus.textContent=
+  "👀 HADAP KAMERA";
+
+  return;
+
+ }
+
+
+ trackingStatus.textContent=
+ "🟢 WAJAH DIKESAN";
+
+
+ faceGuide.classList.add(
+  "detected"
+ );
+
+
+ const detection=
+ results.detections[0];
+
+
+ let rawX=.5;
+ let rawY=.5;
+ let faceWidth=.15;
+
+
+ /*
+ Try bounding box.
+ */
+
+ const box=
+ detection.boundingBox;
+
+
+ if(box){
+
+  if(
+   typeof box.xCenter==="number"
+  ){
+
+   rawX=box.xCenter;
+
+  }else if(
+   typeof box.xMin==="number" &&
+   typeof box.width==="number"
+  ){
+
+   rawX=
+   box.xMin+
+   box.width/2;
+
+  }
+
+
+  if(
+   typeof box.yCenter==="number"
+  ){
+
+   rawY=box.yCenter;
+
+  }else if(
+   typeof box.yMin==="number" &&
+   typeof box.height==="number"
+  ){
+
+   rawY=
+   box.yMin+
+   box.height/2;
+
+  }
+
+
+  if(
+   typeof box.width==="number"
+  ){
+
+   faceWidth=
+   box.width;
+
+  }
+
+ }
+
+
+ /*
+ If bounding box differs between MediaPipe builds,
+ use keypoints as fallback.
+
+ keypoint 0 = right eye
+ keypoint 1 = left eye
+ */
+
+ if(
+  detection.landmarks &&
+  detection.landmarks.length>=2
+ ){
+
+  const eyeA=
+  detection.landmarks[0];
+
+  const eyeB=
+  detection.landmarks[1];
+
+
+  if(
+   eyeA &&
+   eyeB &&
+   typeof eyeA.x==="number" &&
+   typeof eyeB.x==="number"
+  ){
+
+   rawX=
+   (eyeA.x+eyeB.x)/2;
+
+
+   rawY=
+   (eyeA.y+eyeB.y)/2+.08;
+
+  }
+
+ }
+
+
+ /*
+ VIDEO IS MIRRORED.
+ */
+
+ const mirroredX=
+ 1-rawX;
+
+
+ /*
+ Smooth movement.
+ */
+
+ smoothX+=
+ (mirroredX-smoothX)*
+ SMOOTHING;
+
+
+ smoothY+=
+ (rawY-smoothY)*
+ SMOOTHING;
+
+
+ /*
+ Marker.
+ */
+
+ const screenX=
+ smoothX*innerWidth;
+
+
+ const screenY=
+ smoothY*innerHeight;
+
+
+ faceMarker.style.display=
+ "block";
+
+
+ faceMarker.style.left=
+ screenX+"px";
+
+
+ faceMarker.style.top=
+ screenY+"px";
+
+
+ const markerSize=
+ Math.max(
+  70,
+  Math.min(
+   180,
+   faceWidth*innerWidth
+  )
+ );
+
+
+ faceMarker.style.width=
+ markerSize+"px";
+
+
+ faceMarker.style.height=
+ markerSize*1.25+"px";
+
+
+ processHeadPosition(
+  smoothX
+ );
+
+}
+
+
+/* ==========================================================
+   HEAD POSITION
+========================================================== */
+
+function processHeadPosition(x){
+
+ if(
+  !gameActive ||
+  !cameraMode
+ ){
+  return;
+ }
+
+
+ const inCenter=
+ x>=LEFT_THRESHOLD &&
+ x<=RIGHT_THRESHOLD;
+
+
+ /*
+ WAIT FOR CENTER
+ */
+
+ if(waitingForCenter){
+
+  falseZone.classList.remove(
+   "active"
+  );
+
+  trueZone.classList.remove(
+   "active"
+  );
+
+
+  faceMarker.classList.remove(
+   "left",
+   "right"
+  );
+
+
+  if(inCenter){
+
+   if(!centerStart){
+
+    centerStart=
+    performance.now();
+
+   }
+
+
+   const elapsed=
+   performance.now()-
+   centerStart;
+
+
+   const percent=
+   Math.min(
+    100,
+    elapsed/
+    CENTER_HOLD_TIME*
+    100
+   );
+
+
+   holdFill.style.width=
+   percent+"%";
+
+
+   moveStatus.textContent=
+   "😊 BAGUS! TAHAN DI TENGAH";
+
+
+   holdLabel.textContent=
+   "⏳ SEDIAKAN SOALAN...";
+
+
+   if(
+    elapsed>=
+    CENTER_HOLD_TIME
+   ){
+
+    waitingForCenter=false;
+
+    centerStart=0;
+
+    holdFill.style.width="0%";
+
+    returnCenter.classList.remove(
+     "show"
+    );
+
+
+    moveStatus.textContent=
+    "🎯 SEDIA! PILIH JAWAPAN";
+
+
+    holdLabel.textContent=
+    "← ❌ SALAH • BETUL ✅ →";
+
+
+    centerSound();
+
+   }
+
+
+  }else{
+
+   centerStart=0;
+
+   holdFill.style.width="0%";
+
+
+   moveStatus.textContent=
+   "↩️ GERAK KEPALA KE TENGAH";
+
+  }
+
+
+  return;
+
+ }
+
+
+ if(answering){
+  return;
+ }
+
+
+ let zone="CENTER";
+
+
+ if(x<LEFT_THRESHOLD){
+
+  zone="FALSE";
+
+ }else if(x>RIGHT_THRESHOLD){
+
+  zone="TRUE";
+
+ }
+
+
+ falseZone.classList.toggle(
+  "active",
+  zone==="FALSE"
+ );
+
+
+ trueZone.classList.toggle(
+  "active",
+  zone==="TRUE"
+ );
+
+
+ faceMarker.classList.remove(
+  "left",
+  "right"
+ );
+
+
+ if(zone==="FALSE"){
+
+  faceMarker.classList.add(
+   "left"
+  );
+
+ }else if(zone==="TRUE"){
+
+  faceMarker.classList.add(
+   "right"
+  );
+
+ }
+
+
+ /*
+ CENTER CANCELS SELECTION
+ */
+
+ if(zone==="CENTER"){
+
+  activeZone=null;
+
+  zoneStart=0;
+
+  holdFill.style.width="0%";
+
+
+  moveStatus.textContent=
+  "😊 TENGAH — PILIH JAWAPAN";
+
+
+  holdLabel.textContent=
+  "← ❌ SALAH • BETUL ✅ →";
+
+
+  return;
+
+ }
+
+
+ /*
+ ENTER NEW ZONE
+ */
+
+ if(activeZone!==zone){
+
+  activeZone=zone;
+
+  zoneStart=
+  performance.now();
+
+  holdFill.style.width="0%";
+
+  lockSound();
+
+ }
+
+
+ const elapsed=
+ performance.now()-
+ zoneStart;
+
+
+ const percent=
+ Math.min(
+  100,
+  elapsed/HOLD_TIME*100
+ );
+
+
+ holdFill.style.width=
+ percent+"%";
+
+
+ if(zone==="FALSE"){
+
+  moveStatus.textContent=
+  "👈 ❌ SALAH";
+
+  holdLabel.textContent=
+  "❌ TAHAN DI KIRI...";
+
+ }else{
+
+  moveStatus.textContent=
+  "✅ BETUL 👉";
+
+  holdLabel.textContent=
+  "✅ TAHAN DI KANAN...";
+
+ }
+
+
+ if(elapsed>=HOLD_TIME){
+
+  answerQuestion(
+   zone==="TRUE"
+  );
+
+ }
+
+}
+
+
+/* ==========================================================
+   LOAD QUESTION
+========================================================== */
+
+function loadQuestion(){
+
+ if(current>=20){
+
+  finishGame();
+
+  return;
+
+ }
+
+
+ answering=false;
+
+ activeZone=null;
+
+ zoneStart=0;
+
+ centerStart=0;
+
+
+ falseZone.classList.remove(
+  "active"
+ );
+
+ trueZone.classList.remove(
+  "active"
+ );
+
+
+ holdFill.style.width="0%";
+
+
+ const q=
+ questions[current];
+
+
+ surahEl.textContent=
+ q.surah;
+
+
+ verseEl.textContent=
+ q.verse;
+
+
+ statementEl.textContent=
+ q.shownMeaning;
+
+
+ questionCount.textContent=
+ `${current+1}/20`;
+
+
+ roundText.textContent=
+ `${Math.floor(current/4)+1}/5`;
+
+
+ progress.style.width=
+ `${(current/20)*100}%`;
+
+
+ if(cameraMode){
+
+  waitingForCenter=true;
+
+
+  returnCenter.classList.add(
+   "show"
+  );
+
+
+  moveStatus.textContent=
+  "↩️ KEMBALI KE TENGAH";
+
+
+  holdLabel.textContent=
+  "😊 LETAK KEPALA DI TENGAH";
+
+ }else{
+
+  waitingForCenter=false;
+
+
+  returnCenter.classList.remove(
+   "show"
+  );
+
+
+  moveStatus.textContent=
+  "🖱️ PILIH BETUL / SALAH";
+
+
+  holdLabel.textContent=
+  "🖱️ GUNA BUTANG DI BAWAH";
+
+ }
+
+}
+
+
+/* ==========================================================
+   ANSWER
+========================================================== */
+
+function answerQuestion(selected){
+
+ if(
+  !gameActive ||
+  answering
+ ){
+  return;
+ }
+
+
+ answering=true;
+
+
+ const q=
+ questions[current];
+
+
+ const correct=
+ selected===
+ q.correctAnswer;
+
+
+ flash.classList.remove("go");
+
+ void flash.offsetWidth;
+
+ flash.classList.add("go");
+
+
+ if(correct){
+
+  correctCount++;
+
+
+  const bonus=
+  combo>1
+  ? (combo-1)*50
+  : 0;
+
+
+  const gained=
+  100+bonus;
+
+
+  score+=gained;
+
+
+  correctSound();
+
+
+  floatingText(
+   `✨ BETUL! +${gained}`,
+   "#67ff9c"
+  );
+
+
+  burst(
+   innerWidth/2,
+   innerHeight/2,
+   "#ffe15c",
+   45
+  );
+
+
+  burst(
+   innerWidth/2,
+   innerHeight/2,
+   "#59f7ff",
+   35
+  );
+
+
+  combo++;
+
+
+  bestCombo=
+  Math.max(
+   bestCombo,
+   combo
+  );
+
+
+ }else{
+
+  combo=1;
+
+
+  wrongSound();
+
+
+  floatingText(
+   "❌ SALAH!",
+   "#ff6978"
+  );
+
+
+  burst(
+   innerWidth/2,
+   innerHeight/2,
+   "#ff586c",
+   42
+  );
+
+
+  game.classList.add(
+   "shake"
+  );
+
+
+  setTimeout(
+   ()=>game.classList.remove(
+    "shake"
+   ),
+   200
+  );
+
+ }
+
+
+ updateHUD();
+
+
+ setTimeout(
+  ()=>{
+
+   current++;
+
+   loadQuestion();
+
+  },
+  1100
+ );
+
+}
+
+
+/* ==========================================================
+   HUD
+========================================================== */
+
+function updateHUD(){
+
+ scoreText.textContent=
+ score;
+
+
+ comboText.textContent=
+ `x${combo}`;
+
+}
+
+
+/* ==========================================================
+   START GAME
+========================================================== */
+
+function startGame(){
+
+ startModal.classList.add(
+  "hidden"
+ );
+
+
+ victoryModal.classList.add(
+  "hidden"
+ );
+
+
+ questions=
+ generateQuestions();
+
+
+ current=0;
+
+ score=0;
+
+ correctCount=0;
+
+ combo=1;
+
+ bestCombo=1;
+
+ answering=false;
+
+ waitingForCenter=false;
+
+ activeZone=null;
+
+ zoneStart=0;
+
+ centerStart=0;
+
+ smoothX=.5;
+
+ smoothY=.5;
+
+ gameActive=true;
+
+
+ updateHUD();
+
+ loadQuestion();
+
+}
+
+
+/* ==========================================================
+   FINISH
+========================================================== */
+
+function finishGame(){
+
+ gameActive=false;
+
+
+ faceMarker.style.display=
+ "none";
+
+
+ returnCenter.classList.remove(
+  "show"
+ );
+
+
+ progress.style.width=
+ "100%";
+
+
+ fanfare();
+
+
+ confetti({
+
+  particleCount:180,
+
+  spread:110,
+
+  origin:{
+   y:.6
+  }
+
+ });
+
+
+ setTimeout(
+  ()=>{
+
+   confetti({
+
+    particleCount:80,
+
+    angle:60,
+
+    spread:70,
+
+    origin:{
+     x:0,
+     y:.65
+    }
+
+   });
+
+
+   confetti({
+
+    particleCount:80,
+
+    angle:120,
+
+    spread:70,
+
+    origin:{
+     x:1,
+     y:.65
+    }
+
+   });
+
+  },
+  350
+ );
+
+
+ let stars="⭐";
+
+
+ if(correctCount>=17){
+
+  stars="⭐⭐⭐";
+
+ }else if(correctCount>=13){
+
+  stars="⭐⭐";
+
+ }
+
+
+ const accuracy=
+ Math.round(
+  correctCount/20*100
+ );
+
+
+ document.getElementById(
+  "stars"
+ ).textContent=
+ stars;
+
+
+ document.getElementById(
+  "finalScore"
+ ).textContent=
+ score;
+
+
+ document.getElementById(
+  "finalCombo"
+ ).textContent=
+ `x${Math.max(
+  1,
+  bestCombo-1
+ )}`;
+
+
+ document.getElementById(
+  "finalCorrect"
+ ).textContent=
+ `${correctCount}/20`;
+
+
+ document.getElementById(
+  "finalAccuracy"
+ ).textContent=
+ `${accuracy}%`;
+
+
+ victoryModal.classList.remove(
+  "hidden"
+ );
+
+}
+
+
+/* ==========================================================
+   BUTTON EVENTS
+========================================================== */
+
+document.getElementById(
+ "cameraStart"
+).addEventListener(
+ "click",
+ startCamera
+);
+
+
+document.getElementById(
+ "retryCamera"
+).addEventListener(
+ "click",
+ startCamera
+);
+
+
+document.getElementById(
+ "manualStart"
+).addEventListener(
+ "click",
+ ()=>{
+
+  initAudio();
+
+
+  stopCamera();
+
+
+  cameraMode=false;
+
+
+  trackingStatus.textContent=
+  "🖱️ MOD MANUAL";
+
+
+  startGame();
+
+ }
+);
+
+
+document.getElementById(
+ "falseButton"
+).addEventListener(
+ "click",
+ ()=>{
+
+  if(
+   gameActive &&
+   !answering
+  ){
+
+   answerQuestion(false);
+
+  }
+
+ }
+);
+
+
+document.getElementById(
+ "trueButton"
+).addEventListener(
+ "click",
+ ()=>{
+
+  if(
+   gameActive &&
+   !answering
+  ){
+
+   answerQuestion(true);
+
+  }
+
+ }
+);
+
+
+document.getElementById(
+ "replayButton"
+).addEventListener(
+ "click",
+ ()=>{
+
+  victoryModal.classList.add(
+   "hidden"
+  );
+
+
+  startGame();
+
+ }
+);
+
+
+document.getElementById(
+ "menuButton"
+).addEventListener(
+ "click",
+ ()=>{
+
+  victoryModal.classList.add(
+   "hidden"
+  );
+
+
+  startModal.classList.remove(
+   "hidden"
+  );
+
+
+  gameActive=false;
+
+
+  faceMarker.style.display=
+  "none";
+
+
+  returnCenter.classList.remove(
+   "show"
+  );
+
+
+  checkEnvironment();
+
+ }
+);
+
+
+/* ==========================================================
+   KEYBOARD FALLBACK
+========================================================== */
+
+document.addEventListener(
+ "keydown",
+ event=>{
+
+  if(
+   !gameActive ||
+   answering
+  ){
+   return;
+  }
+
+
+  if(event.key==="ArrowLeft"){
+
+   answerQuestion(false);
+
+  }
+
+
+  if(event.key==="ArrowRight"){
+
+   answerQuestion(true);
+
+  }
+
+ }
+);
+
+
+/* ==========================================================
+   CLEANUP
+========================================================== */
+
+window.addEventListener(
+ "beforeunload",
+ ()=>{
+
+  stopCamera();
+
+ }
+);
+
+
+/* ==========================================================
+   PREVIEW
+========================================================== */
+
+questions=
+generateQuestions();
+
+loadQuestion();
+
+</script>
+
+</body>
+</html>
