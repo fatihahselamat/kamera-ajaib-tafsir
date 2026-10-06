@@ -432,7 +432,7 @@ button{
  top:235px;
  bottom:65px;
 
- width:29%;
+ width:34%;
 
  display:flex;
  align-items:center;
@@ -441,13 +441,13 @@ button{
  pointer-events:none;
 }
 
-#falseZone{left:1.5%}
-#trueZone{right:1.5%}
+#falseZone{left:1%}
+#trueZone{right:1%}
 
 .zoneCard{
  width:100%;
- max-width:270px;
- min-height:155px;
+ max-width:340px;
+ min-height:190px;
 
  border-radius:25px;
 
@@ -551,9 +551,9 @@ button{
 }
 
 .faceGuide.detected{
- border-style:solid;
- border-color:#63ffb0;
- box-shadow:0 0 30px rgba(85,255,174,.45);
+ border-color:transparent;
+ box-shadow:none;
+ background:transparent;
 }
 
 .faceEmoji{
@@ -2010,11 +2010,11 @@ let smoothY=.5;
    SETTINGS
 ========================================================== */
 
-const LEFT_THRESHOLD=.36;
+const LEFT_THRESHOLD=.44;
 
-const RIGHT_THRESHOLD=.64;
+const RIGHT_THRESHOLD=.56;
 
-const HOLD_TIME=800;
+const HOLD_TIME=650;
 
 const CENTER_HOLD_TIME=400;
 
